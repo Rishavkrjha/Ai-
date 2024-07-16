@@ -1,0 +1,211 @@
+import androidhelper as android
+import time
+import random
+import requests
+
+droid = android.Android()
+
+# Your API keys
+api_key = 'ce22763a9e0059b680088826f0f23a75'  # OpenWeatherMap API key
+news_api_key = 'b6347d633a114fe8b858767f146a237f'  # News API key
+
+def speak(text, lang="en-us"):
+    droid.ttsSetLanguage(lang)
+    droid.ttsSpeak(text)
+    time.sleep(1)  # Adding a short delay after speaking
+
+def greet_user():
+    current_hour = int(time.strftime("%H"))
+    greetings = [
+        ("Good morning!", "सुप्रभात!"),
+        ("Good afternoon!", "नमस्कार!"),
+        ("Good evening!", "शुभ संध्या!"),
+        ("Good night!", "शुभ रात्रि!")
+    ]
+    
+    greeting = greetings[0] if current_hour < 12 else greetings[1] if current_hour < 17 else greetings[2] if current_hour < 21 else greetings[3]
+    speak(f"{greeting[0]} I am Chloë, your assistant. How can I help you today?")
+
+def open_app(app_name, lang="en-us"):
+    app_mapping = {
+        "youtube": "com.google.android.youtube/.HomeActivity",
+        "whatsapp": "com.whatsapp/.Main",
+        "google": "com.google.android.googlequicksearchbox/.SearchActivity",
+        "facebook": "com.facebook.katana/.MainActivity",
+        "twitter": "com.twitter.android/.StartActivity",
+        "instagram": "com.instagram.android/.activity.MainTabActivity"
+    }
+    
+    package_name = app_mapping.get(app_name.lower())
+    if package_name:
+        try:
+            droid.startActivity(package_name)
+            speak(f"Opening {app_name} for you.", lang)
+            time.sleep(3)  # Delay increased to 3 seconds
+            return True
+        except Exception as e:
+            speak(f"Sorry, I couldn't open {app_name}. Error: {e}", lang)
+            return False
+    else:
+        speak(f"I can't find {app_name}. Please check the name.", lang)
+        return False
+
+def get_weather(city_name, lang="en-us"):
+    url = "https://api.openweathermap.org/data/2.5/weather"
+    params = {
+        "q": city_name,
+        "appid": api_key,
+        "units": "metric"
+    }
+
+    try:
+        response = requests.get(url, params=params)
+        data = response.json()
+
+        if response.status_code == 200:
+            weather_description = data['weather'][0]['description']
+            temperature = data['main']['temp']
+            humidity = data['main']['humidity']
+            wind_speed = data['wind']['speed']
+
+            weather_info = f"The weather in {city_name} is {weather_description}. Temperature is {temperature}°C, humidity is {humidity}%, and wind speed is {wind_speed} m/s."
+            speak(weather_info, lang)
+        else:
+            speak(f"Sorry, I couldn't fetch the weather information for {city_name} right now. Error: {data.get('message', 'Unknown error')}", lang)
+    except Exception as e:
+        speak(f"Sorry, there was an error: {e}", lang)
+
+def get_current_time(lang="en-us"):
+    current_time = time.strftime("%H:%M:%S")
+    speak(f"The current time is {current_time}.", lang)
+
+def get_news_from_api(lang="en-us"):
+    try:
+        url = "https://newsapi.org/v2/top-headlines"
+        params = {
+            "country": "in",  # Change the country code as per your preference
+            "apiKey": news_api_key
+        }
+        
+        response = requests.get(url, params=params)
+        data = response.json()
+
+        if response.status_code == 200:
+            articles = data['articles']
+            num_articles = len(articles)
+            news_info = "Here are some of the latest news headlines: "
+            for i in range(min(num_articles, 3)):  # Speak up to 3 articles
+                news_info += articles[i]['title'] + ". "
+            
+            speak(news_info, lang)
+        else:
+            speak(f"Sorry, I couldn't fetch the news right now. Error: {data.get('message', 'Unknown error')}", lang)
+    except Exception as e:
+        speak(f"Sorry, there was an error fetching the news: {e}", lang)
+
+def set_reminder(reminder, lang="en-us"):
+    # Assuming reminders are being stored and managed
+    speak(f"Reminder set for: {reminder}", lang)
+
+def convert_currency(amount, from_currency, to_currency, lang="en-us"):
+    # Dummy conversion rate for the sake of example
+    conversion_rate = 74.0  # Example rate from USD to INR
+    converted_amount = amount * conversion_rate
+    speak(f"{amount} {from_currency} is equal to {converted_amount} {to_currency}", lang)
+
+def calculator(expression, lang="en-us"):
+    try:
+        result = eval(expression)
+        speak(f"The result of {expression} is {result}", lang)
+    except Exception as e:
+        speak(f"Sorry, there was an error calculating the result. Error: {e}", lang)
+
+def casual_conversation(user_input, lang="en-us"):
+    responses = {
+        "how are you": [
+            "I'm just a program, but thanks for asking!",
+            "I'm here and ready to help!",
+        ],
+        "what's your name": [
+            "I'm Chloë, your virtual assistant.",
+            "You can call me Chloë.",
+        ],
+        "tell me a joke": [
+            "Why did the computer go to the doctor? Because it had a virus!",
+            "Why was the computer cold? It left its Windows open!",
+        ],
+        "thank you": [
+            "You're welcome! I'm here to help.",
+            "No problem! Happy to assist.",
+        ],
+    }
+    
+    response = random.choice(responses.get(user_input.lower(), ["I'm here to help with anything you need!"]))
+    speak(response, lang)
+
+def speech_to_text():
+    result = droid.recognizeSpeech("Speak now")
+    if result.result:
+        return result.result
+    else:
+        speak("Sorry, I didn't catch that.")
+        return None
+
+def get_gps_location():
+    try:
+        location = droid.getLastKnownLocation().result
+        if location:
+            latitude = location['passive']['latitude']
+            longitude = location['passive']['longitude']
+            return latitude, longitude
+        else:
+            speak("Sorry, unable to fetch GPS location.")
+            return None, None
+    except Exception as e:
+        speak(f"Error fetching GPS location: {e}")
+        return None, None
+
+def listen():
+    while True:
+        speak("Listening...")
+        user_input = speech_to_text()
+        if user_input:
+            language = "en-us" if any(char.isascii() for char in user_input) else "hi"
+            if "youtube" in user_input.lower():
+                open_app("youtube", language)
+            elif "time" in user_input:
+                get_current_time(language)
+            elif "weather" in user_input:
+                get_weather("नोएडा", language)  # Replaced "CityName" with "नोएडा" for Noida
+            elif "news" in user_input:
+                get_news_from_api(language)
+            elif "reminder" in user_input:
+                reminder = user_input.split("reminder", 1)[1].strip()
+                set_reminder(reminder, language)
+            elif "convert" in user_input:
+                parts = user_input.split()
+                amount = float(parts[1])
+                from_currency = parts[2]
+                to_currency = parts[4]
+                convert_currency(amount, from_currency, to_currency, language)
+            elif "calculate" in user_input:
+                expression = user_input.split("calculate", 1)[1].strip()
+                calculator(expression, language)
+            elif "location" in user_input or "gps" in user_input:
+                latitude, longitude = get_gps_location()
+                if latitude is not None and longitude is not None:
+                    speak(f"Your current GPS coordinates are latitude {latitude} and longitude {longitude}.", language)
+                else:
+                    speak("Sorry, unable to fetch GPS coordinates.", language)
+            elif "exit" in user_input or "quit" in user_input:
+                speak("Goodbye! Have a nice day!", language)
+                break
+            else:
+                casual_conversation(user_input, language)
+
+def main():
+    greet_user()
+    listen()
+
+if __name__ == "__main__":
+    main()
